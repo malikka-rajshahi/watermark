@@ -12,12 +12,14 @@ seed=1
 export PYTHONPATH="."
 
 run=0
-for m in 10 15
+for m in 10 15 20 25 30 40 50
 do
     run=$((run+1)); echo run $run
 #    python experiments/c4-experiment.py --save $save/$lang-run-$run-trst.p --n $n --batch_size $batch --m $m --rt_translate --model $model --language $lang --buffer_tokens $buffer --seed $seed
-#    python experiments/c4-experiment.py --save $save/$lang-run-$run-gust.p --n $n --method gumbel --batch_size $batch --m $m --rt_translate --model $model --language $lang --buffer_tokens $buffer --seed $seed
-    python experiments/c4-experiment.py --save $save/$lang-run-$run-gust.p --n $n --method gumbel_mod --batch_size $batch --m $m --rt_translate --model $model --language $lang --buffer_tokens $buffer --seed $seed
+    python experiments/c4-experiment.py --save $save/$lang-run-$run-gust.p --n $n --method gumbel --batch_size $batch --m $m --rt_translate --model $model --language $lang --buffer_tokens $buffer --seed $seed
+    python experiments/c4-experiment.py --save $save/$lang-run-$run-mod-b1.p --n $n --method gumbel_mod --batch_size $batch --m $m --rt_translate --model $model --language $lang --beta 0.1 --buffer_tokens $buffer --seed $seed
+    python experiments/c4-experiment.py --save $save/$lang-run-$run-mod-b2.p --n $n --method gumbel_mod --batch_size $batch --m $m --rt_translate --model $model --language $lang --beta 1 --buffer_tokens $buffer --seed $seed
+    python experiments/c4-experiment.py --save $save/$lang-run-$run-mod-b3.p --n $n --method gumbel_mod --batch_size $batch --m $m --rt_translate --model $model --language $lang --beta 10 --buffer_tokens $buffer --seed $seed
 #    python experiments/c4-experiment.py --save $save/$lang-run-$run-tred.p --n $n --gamma $gamma_tr --edit --batch_size $batch --m $m --rt_translate --model $model --language $lang --buffer_tokens $buffer --seed $seed
 #    python experiments/c4-experiment.py --save $save/$lang-run-$run-gued.p --n $n --gamma $gamma_gu --edit --method gumbel --batch_size $batch --m $m --rt_translate --model $model --language $lang --buffer_tokens $buffer --seed $seed
 #    python experiments/c4-experiment.py --save $save/$lang-run-$run-ki10.p --method kirchenbauer --batch_size $batch --m $m --kirch_delta 1.0 --rt_translate --model $model --language $lang --buffer_tokens $buffer --seed $seed

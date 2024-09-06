@@ -1,6 +1,7 @@
 from time import time
 
 import torch
+print(torch.cuda.is_available())
 import torch.nn.functional as F
 
 from transformers import AutoTokenizer, AutoModelForCausalLM, LogitsProcessorList
@@ -32,6 +33,7 @@ from watermarking.gumbel_mod.key import gumbel_mod_key_func
 from watermarking.kirchenbauer.watermark_processor import WatermarkLogitsProcessor, WatermarkDetector
 
 import argparse
+import os
 
 results = defaultdict(dict)
 
@@ -42,7 +44,7 @@ parser.add_argument('--method',default="transform",type=str)
 parser.add_argument('--model',default="facebook/opt-1.3b",type=str)
 parser.add_argument('--save',default="",type=str)
 parser.add_argument('--seed',default=0,type=int)
-parser.add_argument('--batch_size',default=1,type=int)
+parser.add_argument('--batch_size',default=50,type=int)
 
 parser.add_argument('--m',default=80,type=int)
 parser.add_argument('--k',default=0,type=int)
@@ -70,9 +72,18 @@ parser.add_argument('--rt_translate', action='store_true')
 parser.add_argument('--language',default="french",type=str)
 
 parser.add_argument('--truncate_vocab',default=8,type=int)
+parser.add_argument('--beta',default=1.0,type=float)
 
 args = parser.parse_args()
 results['args'] = copy.deepcopy(args)
+
+out_file = f'output-{args.m}-{args.method}.txt'
+
+try:
+    os.remove(out_file)
+except FileNotFoundError:
+    print("File does not exist.")
+file = open(out_file, 'a')
 
 # fix the random seed for reproducibility
 t0 = time()
@@ -85,7 +96,9 @@ model = AutoModelForCausalLM.from_pretrained(args.model).to(device)
 vocab_size = model.get_output_embeddings().weight.shape[0]
 eff_vocab_size = vocab_size - args.truncate_vocab
 print(f'Loaded the model (t = {time()-t0} seconds)')
-
+file.write(f'Loaded the model (t = {time()-t0} seconds)\n')
+file.close()
+file = open(out_file, 'a')
 dataset = load_dataset("c4", "realnewslike", split="train", streaming=True)
 
 def corrupt(tokens):
@@ -96,6 +109,7 @@ def corrupt(tokens):
     return tokens
 
 T = args.T                  # number of prompts/generations
+#T = 1
 n_batches = int(np.ceil(T / args.batch_size)) # number of batches
 prompt_tokens = args.prompt_tokens      # minimum prompt length
 new_tokens = args.m     # number of tokens to generate
@@ -142,6 +156,9 @@ if args.rt_translate:
 # this is the "key" for the watermark
 # for now each generation gets its own key
 seeds = torch.randint(2**32, (T,))
+#print(seeds)
+#file.write(f'{seeds}\n')
+#seeds = torch.randint(2**32, (1))
 
 if args.method == "transform":
     generate_watermark = lambda prompt,seed : generate(model,
@@ -223,6 +240,7 @@ elif args.method == "kirchenbauer":
             return torch.tensor(0.0)
     test_stat = lambda tokens,n,k,generator,vocab_size,null=False : test_stat_wrapper(tokens)
 elif args.method == "gumbel_mod":
+    print(model.get_output_embeddings().weight.dtype)
     token_embeddings = model.get_output_embeddings().weight.detach().cpu().numpy()
     generate_watermark = lambda prompt,seed : generate(model,
                                                        prompt,
@@ -233,7 +251,8 @@ elif args.method == "gumbel_mod":
                                                        gumbel_mod_key_func,
                                                        gumbel_sampling,
                                                        random_offset=args.offset,
-                                                       token_embeddings=token_embeddings)
+                                                       token_embeddings=token_embeddings,
+                                                       beta=args.beta)
 
     dist = lambda x,y : gumbel_score(x,y)
     test_stat = lambda tokens,n,k,generator,vocab_size,null=False : phi(tokens=tokens,
@@ -275,7 +294,10 @@ while run < args.n_runs:
     null_results.append(null_result)
     run += 1
     pbar.update(1)
-
+file = open(out_file, 'a')
+file.write('gathered base results\n')
+file.close()
+file = open(out_file, 'a')
 null_results = torch.sort(torch.tensor(null_results)).values
 test = lambda tokens,seed : fast_permutation_test(tokens,
                                                   vocab_size,
@@ -290,6 +312,8 @@ t1 = time()
 
 prompts = []
 itm = 0
+print(T)
+file.write(f'{T}\n')
 while itm < T:
     example = next(ds_iterator)
     text = example['text']
@@ -302,8 +326,11 @@ while itm < T:
 
     itm += 1
     
-prompts = torch.vstack(prompts)
+prompts = torch.vstack(prompts).to(device)
 results['prompts'] = copy.deepcopy(prompts)
+file.write('prompts populated\n')
+file.close()
+file = open(out_file, 'a')
 
 null_samples = []
 watermarked_samples = []
@@ -322,6 +349,10 @@ null_samples = torch.clip(null_samples,max=eff_vocab_size-1)
 watermarked_samples = torch.clip(watermarked_samples,max=eff_vocab_size-1)
 
 print(f'Generated samples in (t = {time()-t1} seconds)')
+file = open(out_file, 'a')
+file.write(f'Generated samples in (t = {time()-t1} seconds)\n')
+file.close()
+file = open(out_file, 'a')
 
 pvals_watermark = []
 pvals_null = []
@@ -363,8 +394,11 @@ for itm in range(T):
 
 pbar.close()
 print(f'Ran the experiment (t = {time()-t1} seconds)')
+file.write(f'Ran the experiment (t = {time()-t1} seconds)\n')
+file.close()
 
 results['watermark']['pvals'] = torch.tensor(pvals_watermark)
 results['null']['pvals'] = torch.tensor(pvals_null)
 
+os.makedirs(os.path.dirname(args.save), exist_ok=True)
 pickle.dump(results,open(args.save,"wb"))

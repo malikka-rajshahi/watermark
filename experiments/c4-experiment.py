@@ -77,7 +77,7 @@ parser.add_argument('--beta',default=1.0,type=float)
 args = parser.parse_args()
 results['args'] = copy.deepcopy(args)
 
-out_file = f'output-{args.m}-{args.method}.txt'
+out_file = f'output-m-{args.m}-beta-{args.beta}-method-{args.method}.txt'
 
 try:
     os.remove(out_file)

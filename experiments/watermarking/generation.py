@@ -4,20 +4,20 @@ def generate(model,prompts,vocab_size,n,m,seeds,key_func,sampler,random_offset=T
     print("made it to generate")
     batch_size = len(prompts)
 
-    generator = torch.Generator()
+    generator = torch.Generator(device='cuda:0')
     xis,pis = [],[]
     print("populating xis and pis")
     print(seeds)
     for seed in seeds:
         generator.manual_seed(int(seed))
         if token_embeddings is None:
-            out_file = f'output-{m}-gumbel.txt'
+            out_file = f'output-m-{m}-beta-{beta}-method-gumbel.txt'
             file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
             file.write('made it to generate\n')
             file.close()
             xi,pi = key_func(generator,n,vocab_size)
         else:
-            out_file = f'output-{m}-gumbel_mod.txt'
+            out_file = f'output-m-{m}-beta-{beta}-method-gumbel_mod.txt'
             file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
             file.write('made it to generate\n')
             file.close()

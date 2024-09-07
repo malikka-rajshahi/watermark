@@ -1,8 +1,7 @@
 import torch
+import torch.nn.functional as F
 import numpy as np
-from scipy.spatial.distance import pdist, squareform
-from scipy.linalg import cholesky
-from scipy.stats import norm
+from scipy.spatial.distance import squareform
 from sklearn.decomposition import PCA
 
 def reduce_dimensionality(embeddings, n_components=100):
@@ -21,35 +20,33 @@ def generate_gaussian_samples(token_embeddings, generator, out_file, num_samples
     file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
     reduced_embeddings = reduce_dimensionality(token_embeddings, n_components=pca_components)
     
-    distances = pdist(reduced_embeddings, metric='euclidean')
+    reduced_embeddings = torch.from_numpy(reduced_embeddings).to(device='cuda:0', dtype=torch.float32)
+    distances = F.pdist(reduced_embeddings, p=2)
     
     print('matrix stuff')
     file.write('matrix stuff\n')
     file.close()
     file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
-    cov_matrix = np.exp(-beta * distances).astype(np.float32)
+    cov_matrix = torch.exp(-beta * distances).detach().cpu().numpy().astype(np.float32)
     cov_matrix = squareform(cov_matrix)
     np.fill_diagonal(cov_matrix, 1.0)
-    
+    cov_matrix = torch.from_numpy(cov_matrix).to(device='cuda:0', dtype=torch.float32)
+
     print('cholesky')
     file.write('cholesky\n')
     file.close()
     file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
-    L = cholesky(cov_matrix + 1e-6 * np.eye(cov_matrix.shape[0], dtype=np.float32), lower=True)
+    L = torch.linalg.cholesky(cov_matrix + 1e-6 * torch.eye(cov_matrix.shape[0], dtype=torch.float32, device='cuda:0'))
     print('it happened!')
     file.write('it happened!\n')
     file.close()
 
     # Step 1: Generate random samples in PyTorch using the provided generator
-    torch_samples = torch.randn((L.shape[1], num_samples), generator=generator, dtype=torch.float32)
-    # Step 2: Convert the random samples to a NumPy array
-    np_samples = torch_samples.numpy()
+    torch_samples = torch.randn((L.shape[1], num_samples), generator=generator, dtype=torch.float32, device='cuda:0')
     # Step 3: Perform matrix multiplication in NumPy
-    gaussian_samples_np = np.dot(L, np_samples)
+    gaussian_samples = torch.matmul(L, torch_samples).cpu()
     # Apply the CDF using SciPy in NumPy
-    cdf_samples_np = norm.cdf(gaussian_samples_np)
-    # Step 4: Convert the final result back to a PyTorch tensor
-    cdf_samples = torch.from_numpy(cdf_samples_np)
+    cdf_samples = norm_cdf(gaussian_samples)
 
     #gaussian_samples = np.dot(L, np.random.randn(cov_matrix.shape[0], num_samples).astype(np.float32))
     #L = torch.from_numpy(L).float()  # Convert L to a PyTorch tensor

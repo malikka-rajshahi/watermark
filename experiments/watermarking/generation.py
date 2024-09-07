@@ -1,41 +1,41 @@
 import torch
 
 def generate(model,prompts,vocab_size,n,m,seeds,key_func,sampler,random_offset=True,token_embeddings=None,beta=1):
-    print("made it to generate")
+   # print("made it to generate")
     batch_size = len(prompts)
 
     generator = torch.Generator(device='cuda:0')
     xis,pis = [],[]
-    print("populating xis and pis")
-    print(seeds)
+    #print("populating xis and pis")
+    #print(seeds)
     for seed in seeds:
         generator.manual_seed(int(seed))
         if token_embeddings is None:
             out_file = f'output-m-{m}-beta-{beta}-method-gumbel.txt'
-            file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
-            file.write('made it to generate\n')
-            file.close()
+            #file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
+            #file.write('made it to generate\n')
+            #file.close()
             xi,pi = key_func(generator,n,vocab_size)
         else:
             out_file = f'output-m-{m}-beta-{beta}-method-gumbel_mod.txt'
-            file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
-            file.write('made it to generate\n')
-            file.close()
+            #file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
+            #file.write('made it to generate\n')
+            #file.close()
             xi,pi,token_embeddings,beta = key_func(generator,n,vocab_size,token_embeddings,out_file,beta=beta)
-        print("set xi and pi")
-        file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
-        file.write("set xi and pi\n")
-        file.close()
+        #print("set xi and pi")
+        #file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
+        #file.write("set xi and pi\n")
+        #file.close()
         xis.append(xi.unsqueeze(0))
         pis.append(pi.unsqueeze(0))
 
     xis = torch.vstack(xis)
     pis = torch.vstack(pis)
     pis = pis.to(dtype=torch.int64)
-    print("xis and pis populated")
-    file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
-    file.write("xis and pis populated\n")
-    file.close()
+    #print("xis and pis populated")
+    #file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
+    #file.write("xis and pis populated\n")
+    #file.close()
 
     # deliberately not controlling this randomness with the generator
     if random_offset:

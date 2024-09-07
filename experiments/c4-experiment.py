@@ -294,10 +294,10 @@ while run < args.n_runs:
     null_results.append(null_result)
     run += 1
     pbar.update(1)
-file = open(out_file, 'a')
-file.write('gathered base results\n')
-file.close()
-file = open(out_file, 'a')
+#file = open(out_file, 'a')
+#file.write('gathered base results\n')
+#file.close()
+#file = open(out_file, 'a')
 null_results = torch.sort(torch.tensor(null_results)).values
 test = lambda tokens,seed : fast_permutation_test(tokens,
                                                   vocab_size,
@@ -328,7 +328,7 @@ while itm < T:
     
 prompts = torch.vstack(prompts).to(device)
 results['prompts'] = copy.deepcopy(prompts)
-file.write('prompts populated\n')
+#file.write('prompts populated\n')
 file.close()
 file = open(out_file, 'a')
 

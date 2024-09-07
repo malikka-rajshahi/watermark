@@ -13,33 +13,33 @@ def norm_cdf(x):
     return 0.5 * (1 + torch.erf(x / torch.sqrt(torch.tensor(2.0))))
 
 def generate_gaussian_samples(token_embeddings, generator, out_file, num_samples=1000, beta=1.0, pca_components=10):
-    print('generating samples')
-    file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
-    file.write('generating samples\n')
-    file.close()
-    file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
+    #print('generating samples')
+    #file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
+    #file.write('generating samples\n')
+    #file.close()
+    #file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
     reduced_embeddings = reduce_dimensionality(token_embeddings, n_components=pca_components)
     
     reduced_embeddings = torch.from_numpy(reduced_embeddings).to(device='cuda:0', dtype=torch.float32)
     distances = F.pdist(reduced_embeddings, p=2)
     
-    print('matrix stuff')
-    file.write('matrix stuff\n')
-    file.close()
-    file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
+    #print('matrix stuff')
+    #file.write('matrix stuff\n')
+    #file.close()
+    #file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
     cov_matrix = torch.exp(-beta * distances).detach().cpu().numpy().astype(np.float32)
     cov_matrix = squareform(cov_matrix)
     np.fill_diagonal(cov_matrix, 1.0)
     cov_matrix = torch.from_numpy(cov_matrix).to(device='cuda:0', dtype=torch.float32)
 
-    print('cholesky')
-    file.write('cholesky\n')
-    file.close()
-    file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
+    #print('cholesky')
+    #file.write('cholesky\n')
+    #file.close()
+    #file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
     L = torch.linalg.cholesky(cov_matrix + 1e-6 * torch.eye(cov_matrix.shape[0], dtype=torch.float32, device='cuda:0'))
-    print('it happened!')
-    file.write('it happened!\n')
-    file.close()
+    #print('it happened!')
+    #file.write('it happened!\n')
+    #file.close()
 
     # Step 1: Generate random samples in PyTorch using the provided generator
     torch_samples = torch.randn((L.shape[1], num_samples), generator=generator, dtype=torch.float32, device='cuda:0')
@@ -62,13 +62,13 @@ def generate_gaussian_samples(token_embeddings, generator, out_file, num_samples
     return cdf_samples
 
 def gumbel_mod_key_func(generator, n, vocab_size, token_embeddings, out_file, eff_vocab_size=None, beta=1):
-    print('gumbel key function')
-    file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
-    file.write('gumbel key function\n')
-    file.close()
+    #print('gumbel key function')
+    #file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
+    #file.write('gumbel key function\n')
+    #file.close()
     
     # Convert PyTorch tensor to NumPy array
-    print(token_embeddings.shape)
+    #print(token_embeddings.shape)
     #token_embeddings_np = token_embeddings.cpu().numpy()
 
     if eff_vocab_size is None:
@@ -79,10 +79,10 @@ def gumbel_mod_key_func(generator, n, vocab_size, token_embeddings, out_file, ef
     samples = generate_gaussian_samples(token_embeddings, generator, out_file, num_samples=n, beta=beta)
     
     xi = samples.T
-    print('converting results')
-    file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
-    file.write('converting results\n')
-    file.close()
+    #print('converting results')
+    #file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
+    #file.write('converting results\n')
+    #file.close()
     # Convert results back to PyTorch tensors
     #xi_torch = torch.from_numpy(xi)
     pi_torch = torch.from_numpy(pi)

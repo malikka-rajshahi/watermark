@@ -29,6 +29,7 @@ def generate_gaussian_samples(token_embeddings, generator, out_file, num_samples
     #file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
     cov_matrix = torch.exp(-beta * distances).detach().cpu().numpy().astype(np.float32)
     cov_matrix = squareform(cov_matrix)
+    # why?
     np.fill_diagonal(cov_matrix, 1.0)
     cov_matrix = torch.from_numpy(cov_matrix).to(device='cuda:0', dtype=torch.float32)
 

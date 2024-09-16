@@ -49,11 +49,11 @@ parser.add_argument('--batch_size',default=50,type=int)
 parser.add_argument('--m',default=80,type=int)
 parser.add_argument('--k',default=0,type=int)
 parser.add_argument('--n',default=256,type=int)
-parser.add_argument('--T',default=500,type=int)
+parser.add_argument('--T',default=50,type=int)
 
 parser.add_argument('--prompt_tokens',default=50,type=int)
 parser.add_argument('--buffer_tokens',default=20,type=int)
-parser.add_argument('--n_runs',default=5000,type=int)
+parser.add_argument('--n_runs',default=100,type=int)
 parser.add_argument('--max_seed',default=100000,type=int)
 parser.add_argument('--offset', action='store_true')
 
@@ -77,14 +77,6 @@ parser.add_argument('--beta',default=1.0,type=float)
 args = parser.parse_args()
 results['args'] = copy.deepcopy(args)
 
-out_file = f'output-m-{args.m}-beta-{args.beta}-method-{args.method}.txt'
-
-try:
-    os.remove(out_file)
-except FileNotFoundError:
-    print("File does not exist.")
-file = open(out_file, 'a')
-
 # fix the random seed for reproducibility
 t0 = time()
 torch.manual_seed(args.seed)
@@ -96,9 +88,6 @@ model = AutoModelForCausalLM.from_pretrained(args.model).to(device)
 vocab_size = model.get_output_embeddings().weight.shape[0]
 eff_vocab_size = vocab_size - args.truncate_vocab
 print(f'Loaded the model (t = {time()-t0} seconds)')
-file.write(f'Loaded the model (t = {time()-t0} seconds)\n')
-file.close()
-file = open(out_file, 'a')
 dataset = load_dataset("c4", "realnewslike", split="train", streaming=True)
 
 def corrupt(tokens):
@@ -259,11 +248,13 @@ elif args.method == "gumbel_mod":
                                                                         n=n,
                                                                         k=k,
                                                                         generator=generator,
-                                                                        key_func=gumbel_key_func,
+                                                                        key_func=gumbel_mod_key_func,
                                                                         vocab_size=vocab_size,
                                                                         dist=dist,
                                                                         null=null,
-                                                                        normalize=False)
+                                                                        normalize=False,
+                                                                        token_embeddings=token_embeddings,
+                                                                        beta=args.beta)
 else:
     raise
 
@@ -294,10 +285,7 @@ while run < args.n_runs:
     null_results.append(null_result)
     run += 1
     pbar.update(1)
-#file = open(out_file, 'a')
-#file.write('gathered base results\n')
-#file.close()
-#file = open(out_file, 'a')
+
 null_results = torch.sort(torch.tensor(null_results)).values
 test = lambda tokens,seed : fast_permutation_test(tokens,
                                                   vocab_size,
@@ -310,10 +298,10 @@ test = lambda tokens,seed : fast_permutation_test(tokens,
 
 t1 = time()
 
+
 prompts = []
 itm = 0
-print(T)
-file.write(f'{T}\n')
+
 while itm < T:
     example = next(ds_iterator)
     text = example['text']
@@ -329,8 +317,6 @@ while itm < T:
 prompts = torch.vstack(prompts).to(device)
 results['prompts'] = copy.deepcopy(prompts)
 #file.write('prompts populated\n')
-file.close()
-file = open(out_file, 'a')
 
 null_samples = []
 watermarked_samples = []
@@ -349,10 +335,6 @@ null_samples = torch.clip(null_samples,max=eff_vocab_size-1)
 watermarked_samples = torch.clip(watermarked_samples,max=eff_vocab_size-1)
 
 print(f'Generated samples in (t = {time()-t1} seconds)')
-file = open(out_file, 'a')
-file.write(f'Generated samples in (t = {time()-t1} seconds)\n')
-file.close()
-file = open(out_file, 'a')
 
 pvals_watermark = []
 pvals_null = []
@@ -393,9 +375,6 @@ for itm in range(T):
     pbar.update(1)
 
 pbar.close()
-print(f'Ran the experiment (t = {time()-t1} seconds)')
-file.write(f'Ran the experiment (t = {time()-t1} seconds)\n')
-file.close()
 
 results['watermark']['pvals'] = torch.tensor(pvals_watermark)
 results['null']['pvals'] = torch.tensor(pvals_null)

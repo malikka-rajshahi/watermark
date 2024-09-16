@@ -47,13 +47,11 @@ def phi(tokens,n,k,generator,key_func,vocab_size,dist,null=False,normalize=False
         eff_vocab_size = torch.max(tokens) + 1
     else:
         eff_vocab_size = vocab_size
-    #print(vocab_size)
-    #print(eff_vocab_size)
-
+    
     if (token_embeddings is None):
         xi,pi = key_func(generator,n,vocab_size,eff_vocab_size)
     else:
-        xi,pi = key_func(generator,n,vocab_size,token_embeddings,eff_vocab_size,beta)
+        xi,pi = key_func(generator,n,vocab_size,token_embeddings,beta)
     tokens = torch.argsort(pi)[tokens]
     if normalize:
         tokens = tokens.float() / vocab_size
@@ -70,7 +68,6 @@ def adjacency(tokens,xi,dist,k):
     A = torch.empty(size=(m-(k-1),n))
     for i in range(m-(k-1)):
         for j in range(n):
-            tokens_clamped = torch.clamp(tokens, 0, xi.size(-1) - 1)
-            A[i][j] = dist(tokens_clamped[i:i+k],xi[(j+torch.arange(k))%n])
+            A[i][j] = dist(tokens[i:i+k],xi[(j+torch.arange(k))%n])
 
     return A

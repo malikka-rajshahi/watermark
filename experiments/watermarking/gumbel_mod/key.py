@@ -12,21 +12,14 @@ def reduce_dimensionality(embeddings, n_components=100):
 def norm_cdf(x):
     return 0.5 * (1 + torch.erf(x / torch.sqrt(torch.tensor(2.0))))
 
-def generate_gaussian_samples(token_embeddings, generator, out_file, num_samples=1000, beta=1.0, pca_components=10):
+def generate_gaussian_samples(token_embeddings, generator, num_samples=1000, beta=1.0, pca_components=10):
     #print('generating samples')
-    #file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
-    #file.write('generating samples\n')
-    #file.close()
-    #file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
     reduced_embeddings = reduce_dimensionality(token_embeddings, n_components=pca_components)
     
     reduced_embeddings = torch.from_numpy(reduced_embeddings).to(device='cuda:0', dtype=torch.float32)
     distances = F.pdist(reduced_embeddings, p=2)
     
     #print('matrix stuff')
-    #file.write('matrix stuff\n')
-    #file.close()
-    #file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
     cov_matrix = torch.exp(-beta * distances).detach().cpu().numpy().astype(np.float32)
     cov_matrix = squareform(cov_matrix)
     # why?
@@ -34,21 +27,18 @@ def generate_gaussian_samples(token_embeddings, generator, out_file, num_samples
     cov_matrix = torch.from_numpy(cov_matrix).to(device='cuda:0', dtype=torch.float32)
 
     #print('cholesky')
-    #file.write('cholesky\n')
-    #file.close()
-    #file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
     L = torch.linalg.cholesky(cov_matrix + 1e-6 * torch.eye(cov_matrix.shape[0], dtype=torch.float32, device='cuda:0'))
     #print('it happened!')
-    #file.write('it happened!\n')
-    #file.close()
 
     # Step 1: Generate random samples in PyTorch using the provided generator
-    torch_samples = torch.randn((L.shape[1], num_samples), generator=generator, dtype=torch.float32, device='cuda:0')
-    # Step 3: Perform matrix multiplication in NumPy
-    gaussian_samples = torch.matmul(L, torch_samples).cpu()
+    torch_samples = torch.randn((L.shape[1], num_samples), generator=generator, dtype=torch.float32)
+    torch_samples = torch_samples.to(device="cuda:0")
+    
+    # Step 3: Perform matrix multiplication
+    gaussian_samples = torch.matmul(L, torch_samples)
     # Apply the CDF using SciPy in NumPy
-    cdf_samples = norm_cdf(gaussian_samples)
-
+    #cdf_samples = norm_cdf(gaussian_samples)
+    
     #gaussian_samples = np.dot(L, np.random.randn(cov_matrix.shape[0], num_samples).astype(np.float32))
     #L = torch.from_numpy(L).float()  # Convert L to a PyTorch tensor
     # Generate random samples from a standard normal distribution using the provided generator
@@ -58,38 +48,32 @@ def generate_gaussian_samples(token_embeddings, generator, out_file, num_samples
 
     #gaussian_samples = np.dot(L, np.random.randn(cov_matrix.shape[0], num_samples).astype(np.float32))
     
-    #cdf_samples = norm_cdf(gaussian_samples)
+    cdf_samples = norm_cdf(gaussian_samples)
     
+    #id_cov = torch.eye(token_embeddings.shape[0])
+    #samples = torch.randn((id_cov.shape[1], num_samples), generator=generator, dtype=torch.float32)
+    #torch_samples = samples.to(device="cuda:0")
+    #cdf_samples = norm_cdf(torch_samples)
+
     return cdf_samples
 
-def gumbel_mod_key_func(generator, n, vocab_size, token_embeddings, out_file, eff_vocab_size=None, beta=1):
-    #print('gumbel key function')
-    #file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
-    #file.write('gumbel key function\n')
-    #file.close()
-    
-    # Convert PyTorch tensor to NumPy array
-    #print(token_embeddings.shape)
-    #token_embeddings_np = token_embeddings.cpu().numpy()
-
+def gumbel_mod_key_func(generator, n, vocab_size, token_embeddings, eff_vocab_size=None, beta=1):
     if eff_vocab_size is None:
         eff_vocab_size = vocab_size
+    #print(eff_vocab_size)
+    #print(f'key.py: {generator}')
+    pi = torch.arange(eff_vocab_size)
+    #print(pi)
 
-    pi = np.arange(eff_vocab_size)
-
-    samples = generate_gaussian_samples(token_embeddings, generator, out_file, num_samples=n, beta=beta)
+    samples = generate_gaussian_samples(token_embeddings, generator, num_samples=n, beta=beta)
     
     xi = samples.T
-    #print('converting results')
-    #file = open(f'/scratch/projects/hegdelab/mr6177/watermark/{out_file}', 'a')
-    #file.write('converting results\n')
-    #file.close()
     # Convert results back to PyTorch tensors
-    #xi_torch = torch.from_numpy(xi)
-    pi_torch = torch.from_numpy(pi)
+    #xi = torch.from_numpy(xi)
+    #pi = torch.from_numpy(pi)
     #token_embeddings_torch = torch.from_numpy(token_embeddings)
 
-    return xi, pi_torch, token_embeddings, beta
+    return xi.cpu(), pi.cpu()
 
 def compute_empirical_covariance(xi):
     # Convert PyTorch tensor to NumPy array if necessary

@@ -8,6 +8,8 @@ from watermarking.gumbel.gumbel_levenshtein import gumbel_levenshtein
 import torch
 
 def gumbel_score(tokens,xi):
+    #print(tokens)
+    #print(xi)
     xi_samp = torch.gather(xi,-1,tokens.unsqueeze(-1)).squeeze()
     return -torch.sum(torch.log(1/(1-xi_samp)))
 
